@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Task Priority Analyzer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #6e8efb 0%, #a777e3 48%, #f7b2f4 90%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .container {
+      max-width: 600px;
+      width: 90%;
+      background: rgba(255,255,255,0.97);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px #8e2de283;
+      padding: 32px 24px;
+    }
+    h2 {
+      text-align: center;
+      color: #6e8efb;
+      font-size: 2em;
+      margin-bottom: 24px;
+    }
+    .tasks-row {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    .tasks-row input[type="text"], .tasks-row input[type="date"], .tasks-row input[type="number"] {
+      border: 1px solid #dfdfdf;
+      border-radius: 6px;
+      padding: 8px;
+      background: #f6f6fd;
+      font-size: 1em;
+      outline: none;
+    }
+    .tasks-row input:focus {
+      box-shadow: 0 0 5px #a777e3;
+    }
+    .tasks-row input[type="text"] { width: 22%; }
+    .tasks-row input[type="date"] { width: 28%; }
+    .tasks-row input[type="number"] { width: 14%; }
+    button, input[type="submit"] {
+      background: linear-gradient(90deg,#6e8efb,#a777e3);
+      color: #fff;
+      border: none;
+      padding: 10px 16px;
+      margin-top: 8px; margin-right: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1em;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    button:hover, input[type="submit"]:hover {
+      background: linear-gradient(90deg,#a777e3,#f7b2f4);
+    }
+    #result {
+      margin-top: 24px;
+      text-align: center;
+    }
+    table {
+      margin: 0 auto;
+      border-collapse: collapse;
+      width: 95%;
+      background: #faf3fd;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px #8e2de263;
+    }
+    th, td {
+      border: 1px solid #e5d2f3;
+      padding: 12px 14px;
+      font-size: 1.07em;
+      text-align: center;
+    }
+    th {
+      background: linear-gradient(90deg,#eae2ff 60%,#f7b2f4 100%);
+      color: #a777e3;
+      font-weight: bold;
+    }
+    .add-row-btn {
+      background: #52ab98;
+      margin-bottom: 0;
+    }
+    .add-row-btn:hover {
+      background: #389684;
+    }
+    .priority-indicator {
+      font-weight: bold;
+      padding: 6px 10px;
+      border-radius: 8px;
+      color: #fff;
+      display: inline-block;
+    }
+    .priority-red { background: #e53e3e; }
+    .priority-orange { background: #dd6b20; }
+    .priority-green { background: #38a169; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Task Priority Analyzer</h2>
+    <form id="taskForm">
+      <div style="margin-bottom:18px;">
+        <label for="strategy">Strategy:</label>
+        <select id="strategy">
+          <option value="smart">Smart</option>
+          <option value="fastest">Fastest</option>
+          <option value="impact">Impact</option>
+          <option value="deadline">Deadline</option>
+        </select>
+      </div>
+      <div id="tasksArea">
+        <div class="tasks-row">
+          <input type="text" name="title" placeholder="Title" required>
+          <input type="date" name="due_date" required>
+          <input type="number" name="estimated_hours" placeholder="Hours" min="1" required>
+          <input type="number" name="importance" placeholder="Importance" min="1" max="10" required>
+          <button type="button" class="add-row-btn" onclick="addTaskRow()">+</button>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <input type="submit" value="Analyze">
+      </div>
+    </form>
+    <div id="result"></div>
+  </div>
+  <script>
+    function addTaskRow() {
+      var div = document.createElement('div');
+      div.className = "tasks-row";
+      div.innerHTML =
+        '<input type="text" name="title" placeholder="Title" required>' +
+        '<input type="date" name="due_date" required>' +
+        '<input type="number" name="estimated_hours" placeholder="Hours" min="1" required>' +
+        '<input type="number" name="importance" placeholder="Importance" min="1" max="10" required>' +
+        '<button type="button" class="add-row-btn" onclick="removeTaskRow(this)">&#x2212;</button>';
+      document.getElementById('tasksArea').appendChild(div);
+    }
+    function removeTaskRow(btn) {
+      btn.parentNode.remove();
+    }
+    document.getElementById('taskForm').onsubmit = function(e) {
+      e.preventDefault();
+      var tasks = [];
+      var rows = document.querySelectorAll('#tasksArea .tasks-row');
+      for (let row of rows) {
+        let inputs = row.querySelectorAll('input');
+        let task = {
+          title: inputs[0].value,
+          due_date: inputs[1].value,
+          estimated_hours: inputs[2].value,
+          importance: inputs[3].value
+        };
+        tasks.push(task);
+      }
+      fetch('http://127.0.0.1:8000/api/tasks/analyze/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({tasks: tasks, strategy: document.getElementById('strategy').value})
+      })
+      .then(resp => resp.json())
+      .then(data => {
+        if (!data.tasks) { document.getElementById('result').innerHTML = 'Error!'; return; }
+        var html = '<h3>Results</h3><table><tr><th>Title</th><th>Score</th><th>Priority</th><th>Reason</th></tr>';
+        data.tasks.forEach(function(task) {
+          var colorClass = task.priority_color === 'red' ? 'priority-red' :
+                          task.priority_color === 'orange' ? 'priority-orange' : 'priority-green';
+          html += `<tr>
+            <td>${task.title}</td>
+            <td>${task.score}</td>
+            <td><span class="priority-indicator ${colorClass}">${task.priority_color.toUpperCase()}</span></td>
+            <td>${task.reason}</td>
+          </tr>`;
+        });
+        html += '</table>';
+        document.getElementById('result').innerHTML = html;
+      })
+      .catch(err => { document.getElementById('result').innerHTML = 'Error: API not reachable.'; });
+    };
+
+ 
+  </script>
+
+
+</body>
+</html>
